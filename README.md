@@ -35,3 +35,7 @@ For Android browser testing while the app runs on your Mac:
 3. Open the tunnel URL on your phone
 
 If you later deploy on your own server, keep the app and database on that machine or point the app server at a managed/self-hosted Postgres instance by changing `DATABASE_URL`.
+
+## Screenshots
+
+![screenshot](assets/image.png)
