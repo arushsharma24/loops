@@ -1,5 +1,7 @@
 import { Loop, Prisma } from "@prisma/client";
 
+import { deriveNextStep } from "@/lib/loop-record";
+
 export const loopInclude = {
   checklistItems: {
     orderBy: {
@@ -26,6 +28,12 @@ export type LoopWithRelations = Prisma.LoopGetPayload<{
 }>;
 
 export function serializeLoop(loop: LoopWithRelations) {
+  const checklistItems = loop.checklistItems.map((item) => ({
+    ...item,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+  }));
+
   return {
     ...loop,
     dueDate: loop.dueDate?.toISOString() ?? null,
@@ -34,11 +42,17 @@ export function serializeLoop(loop: LoopWithRelations) {
     createdAt: loop.createdAt.toISOString(),
     updatedAt: loop.updatedAt.toISOString(),
     lastActiveAt: loop.lastActiveAt?.toISOString() ?? null,
-    checklistItems: loop.checklistItems.map((item) => ({
-      ...item,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString(),
-    })),
+    nextStep: deriveNextStep(
+      checklistItems.map((item) => ({
+        id: item.id,
+        label: item.label,
+        completed: item.completed,
+        isNextStep: item.isNextStep,
+        order: item.order,
+      })),
+      loop.nextStep
+    ),
+    checklistItems,
     children: loop.children.map((child) => ({
       ...child,
       dueDate: child.dueDate?.toISOString() ?? null,
@@ -47,6 +61,16 @@ export function serializeLoop(loop: LoopWithRelations) {
       createdAt: child.createdAt.toISOString(),
       updatedAt: child.updatedAt.toISOString(),
       lastActiveAt: child.lastActiveAt?.toISOString() ?? null,
+      nextStep: deriveNextStep(
+        child.checklistItems.map((item) => ({
+          id: item.id,
+          label: item.label,
+          completed: item.completed,
+          isNextStep: item.isNextStep,
+          order: item.order,
+        })),
+        child.nextStep
+      ),
       checklistItems: child.checklistItems.map((item) => ({
         ...item,
         createdAt: item.createdAt.toISOString(),

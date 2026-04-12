@@ -89,6 +89,7 @@ model ChecklistItem {
   id        String   @id @default(cuid())
   label     String
   completed Boolean  @default(false)
+  isNextStep Boolean @default(false)
   order     Int      @default(0)
   loopId    String
   loop      Loop     @relation(fields: [loopId], references: [id], onDelete: Cascade)

@@ -7,6 +7,7 @@ export type ChecklistRecord = {
   id: string;
   label: string;
   completed: boolean;
+  isNextStep: boolean;
   order?: number;
 };
 
@@ -86,10 +87,37 @@ export function buildLoopPayload(loop: LoopRecord, overrides: Partial<LoopPayloa
       id: item.id,
       label: item.label,
       completed: item.completed,
+      isNextStep: item.isNextStep,
       order: item.order ?? index,
     })),
     ...overrides,
   };
+}
+
+export function deriveNextStep(checklistItems: ChecklistRecord[], fallback?: string | null) {
+  const activeChecklistItem = checklistItems.find((item) => item.isNextStep && !item.completed);
+  if (activeChecklistItem) {
+    return activeChecklistItem.label;
+  }
+
+  return fallback ?? null;
+}
+
+export function normalizeChecklistItems(checklistItems: ChecklistRecord[]) {
+  let nextStepAssigned = false;
+
+  return checklistItems.map((item, index) => {
+    const isNextStep = !item.completed && item.isNextStep && !nextStepAssigned;
+    if (isNextStep) {
+      nextStepAssigned = true;
+    }
+
+    return {
+      ...item,
+      isNextStep,
+      order: item.order ?? index,
+    };
+  });
 }
 
 export function nextMorningIso() {

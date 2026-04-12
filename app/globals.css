@@ -119,6 +119,11 @@ textarea {
   color: var(--muted);
 }
 
+.helper-copy {
+  margin: 0;
+  line-height: 1.45;
+}
+
 .brand-mark {
   width: 48px;
   height: 48px;
@@ -412,6 +417,7 @@ textarea {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 100vh;
 }
 
 .topbar {
@@ -491,6 +497,11 @@ textarea {
   text-align: left;
 }
 
+.mini-row {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .mini-row span,
 .breadcrumb span {
   color: var(--muted);
@@ -500,6 +511,34 @@ textarea {
   display: grid;
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
   gap: 1.2rem;
+}
+
+.loop-page-shell {
+  overflow-y: auto;
+}
+
+.loop-page-stack,
+.loop-page-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.loop-page-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.loop-page-header-card {
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--panel-strong) 72%, transparent);
+  box-shadow: var(--shadow);
+  border-radius: 28px;
+  padding: 1.4rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.loop-page-hero {
+  margin: 0;
 }
 
 .loop-list-panel,
@@ -547,6 +586,7 @@ textarea {
 .row-actions {
   display: flex;
   gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .small-icon-button {
@@ -559,6 +599,10 @@ textarea {
 .subloop-card span,
 .empty-state-panel p {
   color: var(--muted);
+}
+
+.loop-row p {
+  margin: 0;
 }
 
 .status-pill {
@@ -636,6 +680,13 @@ textarea {
   align-items: flex-start;
 }
 
+.check-item-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 0.85rem 1rem;
+  background: var(--panel-strong);
+}
+
 .check-item.is-done {
   opacity: 0.55;
 }
@@ -651,6 +702,32 @@ textarea {
 .remove-button {
   margin-left: auto;
   color: var(--muted);
+}
+
+.check-item-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.check-item-input.is-next-step {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.check-item-actions {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.small-text-button {
+  padding: 0.3rem 0.5rem;
+  border-radius: 12px;
 }
 
 .note-block {
@@ -812,6 +889,10 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .loop-page-grid {
+    grid-template-columns: 1fr;
+  }
+
   .summary-grid {
     grid-template-columns: 1fr;
   }
@@ -842,7 +923,9 @@ textarea {
   .detail-header-actions,
   .row-actions,
   .inline-editor,
-  .control-grid {
+  .control-grid,
+  .check-item,
+  .check-item-actions {
     flex-direction: column;
   }
 

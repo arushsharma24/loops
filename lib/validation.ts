@@ -10,6 +10,7 @@ export const checklistItemSchema = z.object({
   id: z.string().optional(),
   label: z.string().min(1),
   completed: z.boolean().default(false),
+  isNextStep: z.boolean().default(false),
 });
 
 export const loopSchema = z.object({

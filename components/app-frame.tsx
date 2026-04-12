@@ -98,6 +98,14 @@ export function AppFrame({
     setTheme(nextTheme);
   }
 
+  const topbarTitle = pathname.startsWith("/loops/")
+    ? "Loop View"
+    : pathname === "/home"
+      ? "All Loops"
+      : pathname === "/later"
+        ? "Saved for Later"
+        : "Closed Loops";
+
   return (
     <>
       <div className={`shell ${open ? "shell-blurred" : ""}`}>
@@ -160,7 +168,7 @@ export function AppFrame({
         <div className="shell-main">
           <header className="topbar">
             <div className="topbar-title">
-              <h2>{pathname === "/home" ? "All Loops" : pathname === "/later" ? "Saved for Later" : "Closed Loops"}</h2>
+              <h2>{topbarTitle}</h2>
             </div>
 
             <div className="topbar-actions">

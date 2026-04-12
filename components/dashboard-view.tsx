@@ -1,31 +1,18 @@
 "use client";
 
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import {
-  CalendarClock,
   CheckCircle2,
   CircleOff,
-  ChevronRight,
   Clock3,
-  Flag,
   Infinity,
   Pencil,
-  Plus,
   RotateCcw,
-  Save,
-  Sparkles,
-  Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 
 import { LoopModal } from "@/components/loop-modal";
-import {
-  buildLoopPayload,
-  nextMorningIso,
-  type ChecklistRecord,
-  type LoopDomain,
-  type LoopRecord,
-  type LoopStatus,
-} from "@/lib/loop-record";
+import { buildLoopPayload, nextMorningIso, type LoopDomain, type LoopRecord } from "@/lib/loop-record";
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -51,21 +38,11 @@ export function DashboardView({
   initialError?: string;
 }) {
   const [loops, setLoops] = useState(initialLoops);
-  const [selectedId, setSelectedId] = useState<string | null>(initialLoops[0]?.id ?? null);
   const [error, setError] = useState(initialError);
   const [pending, setPending] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLoop, setEditingLoop] = useState<LoopRecord | null>(null);
-  const [draftNextStep, setDraftNextStep] = useState("");
-  const [draftNotes, setDraftNotes] = useState("");
-  const [draftStatus, setDraftStatus] = useState<LoopStatus>("ACTIVE");
-  const [checklistInput, setChecklistInput] = useState("");
-  const [subloopTitle, setSubloopTitle] = useState("");
   const [closingLoop, setClosingLoop] = useState<LoopRecord | null>(null);
-
-  useEffect(() => {
-    setLoops(initialLoops);
-  }, [initialLoops]);
 
   const visibleLoops = useMemo(() => {
     const domainFiltered =
@@ -75,10 +52,6 @@ export function DashboardView({
     if (initialSection === "closed") return domainFiltered.filter((loop) => loop.status === "CLOSED");
     return domainFiltered.filter((loop) => loop.status !== "CLOSED");
   }, [initialDomainFilter, initialSection, loops]);
-
-  const selectedLoop = useMemo(() => {
-    return visibleLoops.find((loop) => loop.id === selectedId) ?? visibleLoops[0] ?? null;
-  }, [selectedId, visibleLoops]);
 
   const currentLoop = useMemo(() => {
     return (
@@ -96,44 +69,6 @@ export function DashboardView({
   const resurfacingLoops = useMemo(() => {
     return visibleLoops.filter((loop) => loop.status === "LATER").slice(0, 4);
   }, [visibleLoops]);
-
-  useEffect(() => {
-    if (selectedLoop) {
-      setDraftNextStep(selectedLoop.nextStep || "");
-      setDraftNotes(selectedLoop.notes || "");
-      setDraftStatus(selectedLoop.status);
-      return;
-    }
-
-    setDraftNextStep("");
-    setDraftNotes("");
-    setDraftStatus("ACTIVE");
-  }, [selectedLoop]);
-
-  useEffect(() => {
-    if (!selectedLoop && visibleLoops[0]) {
-      setSelectedId(visibleLoops[0].id);
-    }
-  }, [selectedLoop, visibleLoops]);
-
-  async function refresh() {
-    setPending(true);
-    const query = initialDomainFilter === "ALL" ? "" : `?domain=${initialDomainFilter}`;
-    const response = await fetch(`/api/loops${query}`);
-    const data = await response.json();
-    setPending(false);
-
-    if (!response.ok) {
-      setError(data.error || "Failed to fetch loops.");
-      return;
-    }
-
-    setError("");
-    setLoops(data.loops);
-    if ((!selectedId || !data.loops.find((loop: LoopRecord) => loop.id === selectedId)) && data.loops[0]) {
-      setSelectedId(data.loops[0].id);
-    }
-  }
 
   async function persistLoop(
     loop: LoopRecord,
@@ -159,142 +94,31 @@ export function DashboardView({
     return data.loop as LoopRecord;
   }
 
-  async function deleteLoop(loop: LoopRecord) {
+  async function refresh() {
     setPending(true);
-    const response = await fetch(`/api/loops/${loop.id}`, { method: "DELETE" });
+    const query = initialDomainFilter === "ALL" ? "" : `?domain=${initialDomainFilter}`;
+    const response = await fetch(`/api/loops${query}`);
     const data = await response.json();
     setPending(false);
 
     if (!response.ok) {
-      setError(data.error || "Unable to delete loop.");
+      setError(data.error || "Failed to fetch loops.");
       return;
     }
 
-    setLoops((current) =>
-      current
-        .filter((item) => item.id !== loop.id)
-        .map((item) =>
-          item.id === loop.parentId
-            ? { ...item, children: item.children.filter((child) => child.id !== loop.id) }
-            : item
-        )
-    );
-    if (selectedId === loop.id) {
-      setSelectedId(null);
-    }
-  }
-
-  async function saveOperationalEdits() {
-    if (!selectedLoop) return;
-
-    await persistLoop(selectedLoop, {
-      nextStep: draftNextStep || null,
-      notes: draftNotes || null,
-      status: draftStatus,
-      laterUntil: draftStatus === "LATER" ? selectedLoop.laterUntil || nextMorningIso() : null,
-      dueDate: draftStatus === "LATER" ? null : selectedLoop.dueDate,
-      isCurrent: draftStatus === "ACTIVE" ? selectedLoop.isCurrent : false,
-    });
-  }
-
-  async function updateChecklist(nextItems: ChecklistRecord[]) {
-    if (!selectedLoop) return;
-    await persistLoop(selectedLoop, { checklistItems: nextItems });
-  }
-
-  async function addChecklistItem() {
-    if (!selectedLoop || !checklistInput.trim()) return;
-    const nextItems = [
-      ...selectedLoop.checklistItems,
-      { id: crypto.randomUUID(), label: checklistInput.trim(), completed: false, order: selectedLoop.checklistItems.length },
-    ];
-    const saved = await persistLoop(selectedLoop, { checklistItems: nextItems });
-    if (saved) {
-      setChecklistInput("");
-    }
-  }
-
-  async function toggleChecklist(itemId: string) {
-    if (!selectedLoop) return;
-    const nextItems = selectedLoop.checklistItems.map((item) =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item
-    );
-    await updateChecklist(nextItems);
-  }
-
-  async function removeChecklist(itemId: string) {
-    if (!selectedLoop) return;
-    const nextItems = selectedLoop.checklistItems
-      .filter((item) => item.id !== itemId)
-      .map((item, index) => ({ ...item, order: index }));
-    await updateChecklist(nextItems);
+    setError("");
+    setLoops(data.loops);
   }
 
   async function makeCurrent(loop: LoopRecord) {
     const saved = await persistLoop(loop, { isCurrent: true, status: "ACTIVE", laterUntil: null });
     if (saved) {
-      setLoops((current) =>
-        current.map((item) =>
-          item.id === saved.id ? saved : { ...item, isCurrent: false }
-        )
-      );
-      setSelectedId(saved.id);
+      setLoops((current) => current.map((item) => (item.id === saved.id ? saved : { ...item, isCurrent: false })));
     }
   }
 
   async function deferLoop(loop: LoopRecord) {
-    await persistLoop(loop, { status: "LATER", laterUntil: nextMorningIso(), isCurrent: false });
-  }
-
-  async function createSubloop() {
-    if (!selectedLoop || !subloopTitle.trim()) return;
-
-    setPending(true);
-    const response = await fetch("/api/loops", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: subloopTitle.trim(),
-        summary: null,
-        domain: selectedLoop.domain,
-        type: "ACTION",
-        status: "ACTIVE",
-        priority: "MEDIUM",
-        parentId: selectedLoop.id,
-        nextStep: null,
-        notes: null,
-        dueDate: null,
-        reminderAt: null,
-        laterUntil: null,
-        tags: [],
-        pinned: false,
-        isCurrent: false,
-        checklistItems: [],
-      }),
-    });
-    const data = await response.json();
-    setPending(false);
-
-    if (!response.ok) {
-      setError(data.error || "Unable to create subloop.");
-      return;
-    }
-
-    setLoops((current) => [
-      data.loop,
-      ...current.map((item) =>
-        item.id === selectedLoop.id
-          ? {
-              ...item,
-              children: [
-                { id: data.loop.id, title: data.loop.title, status: data.loop.status, nextStep: data.loop.nextStep, domain: data.loop.domain, parentId: data.loop.parentId },
-                ...item.children,
-              ],
-            }
-          : item
-      ),
-    ]);
-    setSubloopTitle("");
+    await persistLoop(loop, { status: "LATER", laterUntil: loop.laterUntil || nextMorningIso(), isCurrent: false });
   }
 
   async function closeLoop(loop: LoopRecord) {
@@ -311,10 +135,6 @@ export function DashboardView({
 
   async function reopenLoop(loop: LoopRecord) {
     await persistLoop(loop, { status: "ACTIVE", laterUntil: null }, `"${loop.title}" is active again.`);
-  }
-
-  function openClosePrompt(loop: LoopRecord) {
-    setClosingLoop(loop);
   }
 
   return (
@@ -346,14 +166,14 @@ export function DashboardView({
               </div>
               <div className="hero-next-step">
                 <p className="eyebrow">Next Step</p>
-                <strong>{currentLoop?.nextStep || "Define the next useful move."}</strong>
+                <strong>{currentLoop?.nextStep || "Pick a checklist item when you open this loop."}</strong>
               </div>
               <div className="hero-actions">
                 {currentLoop ? (
                   <>
-                    <button className="primary-button" type="button" onClick={() => setSelectedId(currentLoop.id)}>
+                    <Link className="primary-button" href={`/loops/${currentLoop.id}`}>
                       Open loop
-                    </button>
+                    </Link>
                     <button className="secondary-button" type="button" onClick={() => setEditingLoop(currentLoop)}>
                       Edit metadata
                     </button>
@@ -380,10 +200,10 @@ export function DashboardView({
                 {upNext.length ? (
                   <div className="mini-list">
                     {upNext.map((loop) => (
-                      <button className="mini-row" key={loop.id} onClick={() => setSelectedId(loop.id)} type="button">
+                      <Link className="mini-row" href={`/loops/${loop.id}`} key={loop.id}>
                         <strong>{loop.title}</strong>
-                        <span>{loop.nextStep || "No next step yet."}</span>
-                      </button>
+                        {loop.nextStep ? <span>{loop.nextStep}</span> : <span>{formatProgressHint(loop)}</span>}
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -401,10 +221,10 @@ export function DashboardView({
                 {resurfacingLoops.length ? (
                   <div className="mini-list">
                     {resurfacingLoops.map((loop) => (
-                      <button className="mini-row" key={loop.id} onClick={() => setSelectedId(loop.id)} type="button">
+                      <Link className="mini-row" href={`/loops/${loop.id}`} key={loop.id}>
                         <strong>{loop.title}</strong>
                         <span>{formatLaterUntil(loop.laterUntil)}</span>
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -436,284 +256,89 @@ export function DashboardView({
             </div>
           </section>
         ) : (
-          <div className="dashboard-grid">
-            <section className="loop-list-panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Focus Stack</p>
-                  <h3>{initialSection === "home" ? "All visible loops" : "Your loops"}</h3>
-                </div>
+          <section className="loop-list-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Focus Stack</p>
+                <h3>{initialSection === "home" ? "All visible loops" : "Your loops"}</h3>
               </div>
+            </div>
 
-              <div className="loop-list">
-                {visibleLoops.map((loop) => (
-                  <div className={`loop-row ${selectedLoop?.id === loop.id ? "is-selected" : ""}`} key={loop.id}>
-                    <button className="loop-row-main" onClick={() => setSelectedId(loop.id)} type="button">
-                      <div className="loop-row-top">
-                        <strong>{loop.title}</strong>
-                        <span className={`status-pill status-${loop.status.toLowerCase()}`}>{loop.status.toLowerCase()}</span>
-                      </div>
-                      <p>{loop.nextStep || "Define the next useful move."}</p>
-                      <div className="loop-row-meta">
-                        <span>{loop.domain.toLowerCase()}</span>
-                        <span>{loop.priority.toLowerCase()}</span>
-                        {loop.dueDate ? <span>{formatDate(loop.dueDate)}</span> : null}
-                        {loop.isCurrent ? <span>current</span> : null}
-                      </div>
+            <div className="loop-list">
+              {visibleLoops.map((loop) => (
+                <div className="loop-row" key={loop.id}>
+                  <Link className="loop-row-main" href={`/loops/${loop.id}`}>
+                    <div className="loop-row-top">
+                      <strong>{loop.title}</strong>
+                      <span className={`status-pill status-${loop.status.toLowerCase()}`}>{loop.status.toLowerCase()}</span>
+                    </div>
+                    {loop.nextStep ? <p>{loop.nextStep}</p> : null}
+                    <div className="loop-row-meta">
+                      <span>{loop.domain.toLowerCase()}</span>
+                      <span>{loop.priority.toLowerCase()}</span>
+                      <span>{formatCardTiming(loop)}</span>
+                      <span>{formatProgressHint(loop)}</span>
+                      {loop.isCurrent ? <span>current</span> : null}
+                    </div>
+                  </Link>
+                  <div className="row-actions">
+                    <button
+                      className="icon-button small-icon-button"
+                      onClick={() => setEditingLoop(loop)}
+                      type="button"
+                      aria-label="Edit loop"
+                    >
+                      <Pencil size={14} />
                     </button>
-                    <div className="row-actions">
+                    {loop.status !== "CLOSED" ? (
                       <button
                         className="icon-button small-icon-button"
-                        onClick={() => setEditingLoop(loop)}
+                        onClick={() => void makeCurrent(loop)}
                         type="button"
-                        aria-label="Edit loop"
+                        aria-label="Make current"
                       >
-                        <Pencil size={14} />
+                        <CheckCircle2 size={14} />
                       </button>
-                      {loop.status !== "CLOSED" ? (
-                        <button
-                          className="icon-button small-icon-button"
-                          onClick={() => void makeCurrent(loop)}
-                          type="button"
-                          aria-label="Make current"
-                        >
-                          <CheckCircle2 size={14} />
-                        </button>
-                      ) : null}
-                      {loop.status === "CLOSED" ? (
-                        <button
-                          className="icon-button small-icon-button"
-                          onClick={() => void reopenLoop(loop)}
-                          type="button"
-                          aria-label="Reopen loop"
-                        >
-                          <RotateCcw size={14} />
-                        </button>
-                      ) : (
-                        <button
-                          className="icon-button small-icon-button"
-                          onClick={() => openClosePrompt(loop)}
-                          type="button"
-                          aria-label="Close loop"
-                        >
-                          <CircleOff size={14} />
-                        </button>
-                      )}
-                      {loop.status !== "CLOSED" ? (
-                        <button
-                          className="icon-button small-icon-button"
-                          onClick={() => void deferLoop(loop)}
-                          type="button"
-                          aria-label="Save for later"
-                        >
-                          <Clock3 size={14} />
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <aside className="loop-detail-panel">
-              {selectedLoop ? (
-                <>
-                  <div className="detail-header">
-                    <div>
-                      <p className="eyebrow">Current Thread</p>
-                      <h3>{selectedLoop.title}</h3>
-                      <p className="muted-copy">{selectedLoop.summary || "No summary yet."}</p>
-                    </div>
-                    <div className="detail-header-actions">
-                      <button className="secondary-button" type="button" onClick={() => setEditingLoop(selectedLoop)}>
-                        Edit metadata
+                    ) : null}
+                    {loop.status === "CLOSED" ? (
+                      <button
+                        className="icon-button small-icon-button"
+                        onClick={() => void reopenLoop(loop)}
+                        type="button"
+                        aria-label="Reopen loop"
+                      >
+                        <RotateCcw size={14} />
                       </button>
-                      {selectedLoop.status === "CLOSED" ? (
-                        <button className="secondary-button" type="button" onClick={() => void reopenLoop(selectedLoop)}>
-                          Reopen loop
-                        </button>
-                      ) : (
-                        <button className="secondary-button" type="button" onClick={() => void makeCurrent(selectedLoop)}>
-                          Make current
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="signal-row">
-                    <div className="signal-card">
-                      <Sparkles size={16} />
-                      <div>
-                        <span>Next step</span>
-                        <strong>{selectedLoop.nextStep || "Set the next useful action."}</strong>
-                      </div>
-                    </div>
-                    <div className="signal-card">
-                      <Flag size={16} />
-                      <div>
-                        <span>Priority</span>
-                        <strong>{selectedLoop.priority.toLowerCase()}</strong>
-                      </div>
-                    </div>
-                    <div className="signal-card">
-                      <CalendarClock size={16} />
-                      <div>
-                        <span>Timing</span>
-                        <strong>{formatTimingLabel(selectedLoop)}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="detail-sections">
-                    <section className="detail-section-card">
-                      <p className="eyebrow">Thread Controls</p>
-                      <div className="control-grid">
-                        <label className="stacked-field compact-field">
-                          <span>Status</span>
-                          <select value={draftStatus} onChange={(event) => setDraftStatus(event.target.value as LoopStatus)}>
-                            <option value="ACTIVE">Active</option>
-                            <option value="WAITING">Waiting</option>
-                            <option value="LATER">Later</option>
-                            <option value="CLOSED">Closed</option>
-                          </select>
-                        </label>
-
-                        <label className="stacked-field compact-field">
-                          <span>Next step</span>
-                          <input value={draftNextStep} onChange={(event) => setDraftNextStep(event.target.value)} />
-                        </label>
-                      </div>
-
-                      <label className="stacked-field">
-                        <span>Notes</span>
-                        <textarea rows={5} value={draftNotes} onChange={(event) => setDraftNotes(event.target.value)} />
-                      </label>
-
-                      <div className="detail-actions-row">
-                        <button className="primary-button" type="button" onClick={() => void saveOperationalEdits()} disabled={pending}>
-                          <Save size={16} />
-                          Save changes
-                        </button>
-                        {selectedLoop.status === "CLOSED" ? (
-                          <button className="secondary-button" type="button" onClick={() => void reopenLoop(selectedLoop)}>
-                            <RotateCcw size={16} />
-                            Reopen loop
-                          </button>
-                        ) : (
-                          <>
-                            <button className="secondary-button" type="button" onClick={() => void deferLoop(selectedLoop)}>
-                              Save for later
-                            </button>
-                            <button className="secondary-button" type="button" onClick={() => openClosePrompt(selectedLoop)}>
-                              <CircleOff size={16} />
-                              Close loop
-                            </button>
-                          </>
-                        )}
-                        <button className="ghost-button danger-button" type="button" onClick={() => void deleteLoop(selectedLoop)}>
-                          <Trash2 size={16} />
-                          Delete
-                        </button>
-                      </div>
-                    </section>
-
-                    <section className="detail-section-card">
-                      <p className="eyebrow">Checklist</p>
-                      {selectedLoop.checklistItems.length ? (
-                        <div className="check-grid">
-                          {selectedLoop.checklistItems.map((item) => (
-                            <div className={`check-item ${item.completed ? "is-done" : ""}`} key={item.id}>
-                              <button className="check-toggle" onClick={() => void toggleChecklist(item.id)} type="button">
-                                {item.completed ? "✓" : "○"}
-                              </button>
-                              <span>{item.label}</span>
-                              <button className="ghost-button remove-button" onClick={() => void removeChecklist(item.id)} type="button">
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="muted-copy">No checklist items yet.</p>
-                      )}
-
-                      <form
-                        className="inline-editor"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void addChecklistItem();
-                        }}
+                    ) : (
+                      <button
+                        className="icon-button small-icon-button"
+                        onClick={() => setClosingLoop(loop)}
+                        type="button"
+                        aria-label="Close loop"
                       >
-                        <input
-                          placeholder="Add checklist item"
-                          value={checklistInput}
-                          onChange={(event) => setChecklistInput(event.target.value)}
-                        />
-                        <button className="secondary-button" type="submit">
-                          <Plus size={16} />
-                          Add
-                        </button>
-                      </form>
-                    </section>
-
-                    <section className="detail-section-card">
-                      <p className="eyebrow">Notes</p>
-                      <div className="note-block">{selectedLoop.notes || "No notes yet."}</div>
-                    </section>
-
-                    <section className="detail-section-card">
-                      <p className="eyebrow">Structure</p>
-                      {selectedLoop.parent ? (
-                        <button className="breadcrumb" onClick={() => setSelectedId(selectedLoop.parent!.id)} type="button">
-                          <span>{selectedLoop.parent.title}</span>
-                          <ChevronRight size={14} />
-                          <span>{selectedLoop.title}</span>
-                        </button>
-                      ) : (
-                        <p className="muted-copy">Top-level loop</p>
-                      )}
-
-                      <form
-                        className="inline-editor"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void createSubloop();
-                        }}
+                        <CircleOff size={14} />
+                      </button>
+                    )}
+                    {loop.status !== "CLOSED" ? (
+                      <button
+                        className="icon-button small-icon-button"
+                        onClick={() => void deferLoop(loop)}
+                        type="button"
+                        aria-label="Save for later"
                       >
-                        <input
-                          placeholder="Create subloop"
-                          value={subloopTitle}
-                          onChange={(event) => setSubloopTitle(event.target.value)}
-                        />
-                        <button className="secondary-button" type="submit">
-                          <Plus size={16} />
-                          Add subloop
-                        </button>
-                      </form>
-
-                      {selectedLoop.children.length ? (
-                        <div className="subloop-list">
-                          {selectedLoop.children.map((child) => (
-                            <button className="subloop-card subloop-button" key={child.id} onClick={() => setSelectedId(child.id)} type="button">
-                              <strong>{child.title}</strong>
-                              <span>{child.nextStep || "No next step yet."}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="muted-copy">No subloops yet.</p>
-                      )}
-                    </section>
+                        <Clock3 size={14} />
+                      </button>
+                    ) : null}
                   </div>
-                </>
-              ) : null}
-            </aside>
-          </div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </main>
 
       <LoopModal
-        defaultDomain={initialDomainFilter === "ALL" ? selectedLoop?.domain || currentLoop?.domain || "WORK" : initialDomainFilter}
+        defaultDomain={initialDomainFilter === "ALL" ? currentLoop?.domain || "WORK" : initialDomainFilter}
         isOpen={modalOpen || !!editingLoop}
         loop={editingLoop}
         loops={loops}
@@ -727,9 +352,9 @@ export function DashboardView({
             if (existing) {
               return current.map((item) => (item.id === loop.id ? loop : item));
             }
+
             return [loop, ...current];
           });
-          setSelectedId(loop.id);
           setModalOpen(false);
           setEditingLoop(null);
         }}
@@ -759,7 +384,7 @@ export function DashboardView({
                 <div className="signal-card">
                   <div>
                     <span>Checklist</span>
-                    <strong>{formatChecklistSummary(closingLoop)}</strong>
+                    <strong>{formatProgressHint(closingLoop)}</strong>
                   </div>
                 </div>
                 <div className="signal-card">
@@ -768,13 +393,6 @@ export function DashboardView({
                     <strong>{formatSubloopSummary(closingLoop)}</strong>
                   </div>
                 </div>
-              </div>
-
-              <div className="completion-note">
-                <p className="eyebrow">Closing summary</p>
-                <p>
-                  {buildCloseSummary(closingLoop)}
-                </p>
               </div>
             </div>
 
@@ -793,23 +411,16 @@ export function DashboardView({
   );
 }
 
-function parseDate(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function formatDate(value: string | null | undefined) {
-  const date = parseDate(value);
-  return date ? DATE_FORMATTER.format(date) : "No date set";
+  if (!value) return "No deadline";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "No deadline" : DATE_FORMATTER.format(date);
 }
 
 function formatDateTime(value: string | null | undefined) {
-  const date = parseDate(value);
-  return date ? DATE_TIME_FORMATTER.format(date) : "No date set";
+  if (!value) return "No date set";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "No date set" : DATE_TIME_FORMATTER.format(date);
 }
 
 function formatLaterUntil(value: string | null | undefined) {
@@ -817,23 +428,21 @@ function formatLaterUntil(value: string | null | undefined) {
   return formatted === "No date set" ? "Saved for later" : `Returns ${formatted}`;
 }
 
-function formatTimingLabel(loop: LoopRecord) {
-  if (loop.laterUntil) {
-    const formatted = formatDateTime(loop.laterUntil);
-    return formatted === "No date set" ? "Saved for later" : `Later until ${formatted}`;
+function formatCardTiming(loop: LoopRecord) {
+  if (loop.status === "LATER" && loop.laterUntil) {
+    return formatLaterUntil(loop.laterUntil);
   }
 
   if (loop.dueDate) {
-    const formatted = formatDate(loop.dueDate);
-    return formatted === "No date set" ? "No timing set" : `Due ${formatted}`;
+    return `Due ${formatDate(loop.dueDate)}`;
   }
 
-  return "No timing set";
+  return loop.status === "WAITING" ? "Waiting" : "No timing set";
 }
 
-function formatChecklistSummary(loop: LoopRecord) {
+function formatProgressHint(loop: LoopRecord) {
   if (loop.checklistItems.length === 0) {
-    return "No checklist items";
+    return loop.nextStep ? "Next step set" : "No next step yet";
   }
 
   const completed = loop.checklistItems.filter((item) => item.completed).length;
@@ -847,23 +456,4 @@ function formatSubloopSummary(loop: LoopRecord) {
 
   const openChildren = loop.children.filter((child) => child.status !== "CLOSED").length;
   return openChildren === 0 ? "All subloops closed" : `${openChildren} still open`;
-}
-
-function buildCloseSummary(loop: LoopRecord) {
-  const incompleteItems = loop.checklistItems.filter((item) => !item.completed).length;
-  const openChildren = loop.children.filter((child) => child.status !== "CLOSED").length;
-
-  if (incompleteItems === 0 && openChildren === 0) {
-    return "Everything inside this loop is wrapped up. Closing it will preserve the record and clear it from your active surface.";
-  }
-
-  const parts = [];
-  if (incompleteItems > 0) {
-    parts.push(`${incompleteItems} checklist ${incompleteItems === 1 ? "item is" : "items are"} still open`);
-  }
-  if (openChildren > 0) {
-    parts.push(`${openChildren} ${openChildren === 1 ? "subloop is" : "subloops are"} still active`);
-  }
-
-  return `${parts.join(" and ")}, but you can still close this thread now and revisit the remaining pieces later from Closed.`;
 }

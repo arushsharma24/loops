@@ -36,6 +36,7 @@ export function LoopModal({
   const [domain, setDomain] = useState<"WORK" | "PERSONAL">("WORK");
   const [status, setStatus] = useState<"ACTIVE" | "WAITING" | "LATER" | "CLOSED">("ACTIVE");
   const [dueDate, setDueDate] = useState("");
+  const [laterUntil, setLaterUntil] = useState("");
   const [tags, setTags] = useState("");
   const [summary, setSummary] = useState("");
   const [nextStep, setNextStep] = useState("");
@@ -63,7 +64,8 @@ export function LoopModal({
       setPriority(loop.priority);
       setDomain(loop.domain);
       setStatus(loop.status);
-      setDueDate(loop.status === "LATER" ? toDateInputValue(loop.laterUntil) : toDateInputValue(loop.dueDate));
+      setDueDate(toDateInputValue(loop.dueDate));
+      setLaterUntil(toDateInputValue(loop.laterUntil));
       setTags(loop.tags.join(", "));
       setSummary(loop.summary || "");
       setNextStep(loop.nextStep || "");
@@ -75,6 +77,7 @@ export function LoopModal({
       setDomain(defaultDomain);
       setStatus("ACTIVE");
       setDueDate("");
+      setLaterUntil("");
       setTags("");
       setSummary("");
       setNextStep("");
@@ -104,8 +107,8 @@ export function LoopModal({
           parentId: parentId || null,
           nextStep: nextStep || null,
           notes: loop.notes,
-          dueDate: status === "LATER" ? null : dueDate ? toIsoDate(dueDate) : null,
-          laterUntil: status === "LATER" && dueDate ? toIsoDate(dueDate) : loop.laterUntil,
+          dueDate: dueDate ? toIsoDate(dueDate) : null,
+          laterUntil: status === "LATER" && laterUntil ? toIsoDate(laterUntil) : null,
           tags: parsedTags,
           pinned: priority === "URGENT" || loop.pinned,
           isCurrent: loop.isCurrent,
@@ -120,9 +123,9 @@ export function LoopModal({
           parentId: parentId || null,
           nextStep: nextStep || null,
           notes: summary || null,
-          dueDate: status === "LATER" ? null : dueDate ? toIsoDate(dueDate) : null,
+          dueDate: dueDate ? toIsoDate(dueDate) : null,
           reminderAt: null,
-          laterUntil: status === "LATER" && dueDate ? toIsoDate(dueDate) : null,
+          laterUntil: status === "LATER" && laterUntil ? toIsoDate(laterUntil) : null,
           tags: parsedTags,
           pinned: priority === "URGENT",
           isCurrent: status === "ACTIVE",
@@ -225,6 +228,18 @@ export function LoopModal({
               </label>
 
               <label className="stacked-field">
+                <span>Resurface on</span>
+                <input
+                  type="date"
+                  value={laterUntil}
+                  onChange={(event) => setLaterUntil(event.target.value)}
+                  disabled={status !== "LATER"}
+                />
+              </label>
+            </div>
+
+            <div className="split-grid">
+              <label className="stacked-field">
                 <span>Tags</span>
                 <input
                   placeholder="work, idea, urgent"
@@ -232,6 +247,17 @@ export function LoopModal({
                   onChange={(event) => setTags(event.target.value)}
                 />
               </label>
+
+              <div className="stacked-field">
+                <span>Timing note</span>
+                <p className="helper-copy">
+                  {status === "LATER"
+                    ? laterUntil
+                      ? "This loop will stay out of the active surface until the resurfacing date."
+                      : "Choose when this loop should return to your active surface."
+                    : "A deadline can stay set even when you later save this loop for later."}
+                </p>
+              </div>
             </div>
 
             <div className="split-grid">

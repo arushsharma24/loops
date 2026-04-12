@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { deriveNextStep, normalizeChecklistItems } from "@/lib/loop-record";
 import { loopInclude, serializeLoop } from "@/lib/loops";
 import { prisma } from "@/lib/prisma";
 import { loopSchema } from "@/lib/validation";
@@ -25,6 +26,16 @@ export async function PATCH(request: Request, context: Context) {
     }
 
     const data = parsed.data;
+    const checklistItems = normalizeChecklistItems(
+      data.checklistItems.map((item, index) => ({
+        id: item.id ?? crypto.randomUUID(),
+        label: item.label,
+        completed: item.completed,
+        isNextStep: item.isNextStep,
+        order: index,
+      }))
+    );
+    const nextStep = deriveNextStep(checklistItems, data.nextStep);
 
     const existing = await prisma.loop.findFirst({
       where: { id, userId: user.id },
@@ -56,7 +67,7 @@ export async function PATCH(request: Request, context: Context) {
           status: data.status,
           priority: data.priority,
           parentId: data.parentId ?? null,
-          nextStep: data.nextStep ?? null,
+          nextStep,
           notes: data.notes ?? null,
           dueDate: data.dueDate ? new Date(data.dueDate) : null,
           reminderAt: data.reminderAt ? new Date(data.reminderAt) : null,
@@ -66,9 +77,10 @@ export async function PATCH(request: Request, context: Context) {
           isCurrent: data.isCurrent,
           lastActiveAt: new Date(),
           checklistItems: {
-            create: data.checklistItems.map((item, index) => ({
+            create: checklistItems.map((item, index) => ({
               label: item.label,
               completed: item.completed,
+              isNextStep: item.isNextStep,
               order: index,
             })),
           },
