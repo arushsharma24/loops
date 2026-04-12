@@ -38,4 +38,4 @@ If you later deploy on your own server, keep the app and database on that machin
 
 ## Screenshots
 
-![screenshot](assets/image.png)
+![screenshot](assets/image2.png)
