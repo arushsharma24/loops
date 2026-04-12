@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LoopDomain {
+  WORK
+  PERSONAL
+}
+
+enum LoopType {
+  ACTION
+  THOUGHT
+  ROUTINE
+  REFERENCE
+}
+
+enum LoopStatus {
+  ACTIVE
+  WAITING
+  LATER
+  CLOSED
+}
+
+enum LoopPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  loops        Loop[]
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  userId      String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Loop {
+  id             String          @id @default(cuid())
+  title          String
+  summary        String?
+  domain         LoopDomain
+  type           LoopType
+  status         LoopStatus      @default(ACTIVE)
+  priority       LoopPriority    @default(MEDIUM)
+  parentId       String?
+  parent         Loop?           @relation("LoopChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Loop[]          @relation("LoopChildren")
+  nextStep       String?
+  notes          String?
+  dueDate        DateTime?
+  reminderAt     DateTime?
+  laterUntil     DateTime?
+  tags           String[]
+  isCurrent      Boolean         @default(false)
+  pinned         Boolean         @default(false)
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checklistItems ChecklistItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  lastActiveAt   DateTime?
+
+  @@index([userId, status])
+  @@index([userId, parentId])
+}
+
+model ChecklistItem {
+  id        String   @id @default(cuid())
+  label     String
+  completed Boolean  @default(false)
+  order     Int      @default(0)
+  loopId    String
+  loop      Loop     @relation(fields: [loopId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loopId])
+}
