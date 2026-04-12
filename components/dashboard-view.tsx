@@ -1,10 +1,41 @@
 "use client";
 
-import { CalendarClock, CheckCircle2, ChevronRight, Clock3, Flag, Infinity, Pencil, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  Flag,
+  Infinity,
+  Pencil,
+  Plus,
+  Save,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { LoopModal } from "@/components/loop-modal";
-import { buildLoopPayload, nextMorningIso, type ChecklistRecord, type LoopDomain, type LoopRecord, type LoopStatus } from "@/lib/loop-record";
+import {
+  buildLoopPayload,
+  nextMorningIso,
+  type ChecklistRecord,
+  type LoopDomain,
+  type LoopRecord,
+  type LoopStatus,
+} from "@/lib/loop-record";
+
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
 
 export function DashboardView({
   initialLoops,
@@ -101,7 +132,11 @@ export function DashboardView({
     }
   }
 
-  async function persistLoop(loop: LoopRecord, overrides: Parameters<typeof buildLoopPayload>[1], successMessage?: string) {
+  async function persistLoop(
+    loop: LoopRecord,
+    overrides: Parameters<typeof buildLoopPayload>[1],
+    successMessage?: string
+  ) {
     setPending(true);
     const response = await fetch(`/api/loops/${loop.id}`, {
       method: "PATCH",
@@ -262,7 +297,17 @@ export function DashboardView({
   return (
     <>
       <main className="dashboard">
-        {error ? <div className={`banner ${error.includes("unavailable") || error.includes("Unable") || error.includes("Failed") ? "banner-error" : "banner-success"}`}>{error}</div> : null}
+        {error ? (
+          <div
+            className={`banner ${
+              error.includes("unavailable") || error.includes("Unable") || error.includes("Failed")
+                ? "banner-error"
+                : "banner-success"
+            }`}
+          >
+            {error}
+          </div>
+        ) : null}
 
         {initialSection === "home" ? (
           <section className="home-stack">
@@ -335,7 +380,7 @@ export function DashboardView({
                     {resurfacingLoops.map((loop) => (
                       <button className="mini-row" key={loop.id} onClick={() => setSelectedId(loop.id)} type="button">
                         <strong>{loop.title}</strong>
-                        <span>{loop.laterUntil ? `Returns ${formatDateTime(loop.laterUntil)}` : "Saved for later"}</span>
+                        <span>{formatLaterUntil(loop.laterUntil)}</span>
                       </button>
                     ))}
                   </div>
@@ -394,13 +439,28 @@ export function DashboardView({
                       </div>
                     </button>
                     <div className="row-actions">
-                      <button className="icon-button small-icon-button" onClick={() => setEditingLoop(loop)} type="button" aria-label="Edit loop">
+                      <button
+                        className="icon-button small-icon-button"
+                        onClick={() => setEditingLoop(loop)}
+                        type="button"
+                        aria-label="Edit loop"
+                      >
                         <Pencil size={14} />
                       </button>
-                      <button className="icon-button small-icon-button" onClick={() => void makeCurrent(loop)} type="button" aria-label="Make current">
+                      <button
+                        className="icon-button small-icon-button"
+                        onClick={() => void makeCurrent(loop)}
+                        type="button"
+                        aria-label="Make current"
+                      >
                         <CheckCircle2 size={14} />
                       </button>
-                      <button className="icon-button small-icon-button" onClick={() => void deferLoop(loop)} type="button" aria-label="Save for later">
+                      <button
+                        className="icon-button small-icon-button"
+                        onClick={() => void deferLoop(loop)}
+                        type="button"
+                        aria-label="Save for later"
+                      >
                         <Clock3 size={14} />
                       </button>
                     </div>
@@ -447,7 +507,7 @@ export function DashboardView({
                       <CalendarClock size={16} />
                       <div>
                         <span>Timing</span>
-                        <strong>{selectedLoop.laterUntil ? `Later until ${formatDateTime(selectedLoop.laterUntil)}` : selectedLoop.dueDate ? `Due ${formatDate(selectedLoop.dueDate)}` : "No timing set"}</strong>
+                        <strong>{formatTimingLabel(selectedLoop)}</strong>
                       </div>
                     </div>
                   </div>
@@ -601,17 +661,40 @@ export function DashboardView({
   );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(value));
+function parseDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "IST",
-  }).format(new Date(value));
+function formatDate(value: string | null | undefined) {
+  const date = parseDate(value);
+  return date ? DATE_FORMATTER.format(date) : "No date set";
+}
+
+function formatDateTime(value: string | null | undefined) {
+  const date = parseDate(value);
+  return date ? DATE_TIME_FORMATTER.format(date) : "No date set";
+}
+
+function formatLaterUntil(value: string | null | undefined) {
+  const formatted = formatDateTime(value);
+  return formatted === "No date set" ? "Saved for later" : `Returns ${formatted}`;
+}
+
+function formatTimingLabel(loop: LoopRecord) {
+  if (loop.laterUntil) {
+    const formatted = formatDateTime(loop.laterUntil);
+    return formatted === "No date set" ? "Saved for later" : `Later until ${formatted}`;
+  }
+
+  if (loop.dueDate) {
+    const formatted = formatDate(loop.dueDate);
+    return formatted === "No date set" ? "No timing set" : `Due ${formatted}`;
+  }
+
+  return "No timing set";
 }
