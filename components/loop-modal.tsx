@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { buildLoopPayload, type LoopDomain, type LoopPayload, type LoopRecord } from "@/lib/loop-record";
 
@@ -154,6 +154,15 @@ export function LoopModal({
     onClose();
   }
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending || !title.trim()) {
+      return;
+    }
+
+    await saveLoop();
+  }
+
   return (
     <div className="modal-overlay" role="presentation">
       <div className="modal-backdrop" onClick={onClose} />
@@ -168,129 +177,131 @@ export function LoopModal({
           </button>
         </div>
 
-        <div className="modal-body">
-          <label className="stacked-field">
-            <span>What needs to get done?</span>
-            <input
-              autoFocus
-              placeholder="What needs to get done?"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </label>
+        <form className="modal-form" onSubmit={handleSubmit}>
+          <div className="modal-body">
+            <label className="stacked-field">
+              <span>What needs to get done?</span>
+              <input
+                autoFocus
+                placeholder="What needs to get done?"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+            </label>
 
-          <div className="pill-row">
-            {types.map((option) => (
-              <button
-                className={clsx("choice-pill", option.value === type && "is-active")}
-                key={option.value}
-                onClick={() => setType(option.value)}
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          <label className="stacked-field">
-            <span>Priority</span>
             <div className="pill-row">
-              {priorities.map((option) => (
+              {types.map((option) => (
                 <button
-                  className={clsx("choice-pill", priority === option && "is-dark")}
-                  key={option}
-                  onClick={() => setPriority(option)}
+                  className={clsx("choice-pill", option.value === type && "is-active")}
+                  key={option.value}
+                  onClick={() => setType(option.value)}
                   type="button"
                 >
-                  {option[0] + option.slice(1).toLowerCase()}
+                  {option.label}
                 </button>
               ))}
             </div>
-          </label>
 
-          <div className="split-grid">
             <label className="stacked-field">
-              <span>Deadline</span>
-              <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+              <span>Priority</span>
+              <div className="pill-row">
+                {priorities.map((option) => (
+                  <button
+                    className={clsx("choice-pill", priority === option && "is-dark")}
+                    key={option}
+                    onClick={() => setPriority(option)}
+                    type="button"
+                  >
+                    {option[0] + option.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </label>
+
+            <div className="split-grid">
+              <label className="stacked-field">
+                <span>Deadline</span>
+                <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+              </label>
+
+              <label className="stacked-field">
+                <span>Tags</span>
+                <input
+                  placeholder="work, idea, urgent"
+                  value={tags}
+                  onChange={(event) => setTags(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="split-grid">
+              <label className="stacked-field">
+                <span>Domain</span>
+                <select value={domain} onChange={(event) => setDomain(event.target.value as "WORK" | "PERSONAL")}>
+                  <option value="WORK">Work</option>
+                  <option value="PERSONAL">Personal</option>
+                </select>
+              </label>
+
+              <label className="stacked-field">
+                <span>Status</span>
+                <select
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value as "ACTIVE" | "WAITING" | "LATER" | "CLOSED")}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="WAITING">Waiting</option>
+                  <option value="LATER">Later</option>
+                  {loop ? <option value="CLOSED">Closed</option> : null}
+                </select>
+              </label>
+            </div>
+
+            <label className="stacked-field">
+              <span>Parent loop</span>
+              <select value={parentId} onChange={(event) => setParentId(event.target.value)}>
+                <option value="">None</option>
+                {(loops || [])
+                  .filter((candidate) => candidate.id !== loop?.id)
+                  .map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
+                    </option>
+                  ))}
+              </select>
             </label>
 
             <label className="stacked-field">
-              <span>Tags</span>
+              <span>Next useful step</span>
               <input
-                placeholder="work, idea, urgent"
-                value={tags}
-                onChange={(event) => setTags(event.target.value)}
+                placeholder="Write the immediate next move"
+                value={nextStep}
+                onChange={(event) => setNextStep(event.target.value)}
               />
             </label>
-          </div>
-
-          <div className="split-grid">
-            <label className="stacked-field">
-              <span>Domain</span>
-              <select value={domain} onChange={(event) => setDomain(event.target.value as "WORK" | "PERSONAL")}>
-                <option value="WORK">Work</option>
-                <option value="PERSONAL">Personal</option>
-              </select>
-            </label>
 
             <label className="stacked-field">
-              <span>Status</span>
-              <select
-                value={status}
-                onChange={(event) => setStatus(event.target.value as "ACTIVE" | "WAITING" | "LATER" | "CLOSED")}
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="WAITING">Waiting</option>
-                <option value="LATER">Later</option>
-                {loop ? <option value="CLOSED">Closed</option> : null}
-              </select>
+              <span>Summary</span>
+              <textarea
+                placeholder="Add lightweight context for the thread"
+                rows={4}
+                value={summary}
+                onChange={(event) => setSummary(event.target.value)}
+              />
             </label>
+
+            {error ? <div className="banner banner-error">{error}</div> : null}
           </div>
 
-          <label className="stacked-field">
-            <span>Parent loop</span>
-            <select value={parentId} onChange={(event) => setParentId(event.target.value)}>
-              <option value="">None</option>
-              {(loops || [])
-                .filter((candidate) => candidate.id !== loop?.id)
-                .map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.title}
-                  </option>
-                ))}
-            </select>
-          </label>
-
-          <label className="stacked-field">
-            <span>Next useful step</span>
-            <input
-              placeholder="Write the immediate next move"
-              value={nextStep}
-              onChange={(event) => setNextStep(event.target.value)}
-            />
-          </label>
-
-          <label className="stacked-field">
-            <span>Summary</span>
-            <textarea
-              placeholder="Add lightweight context for the thread"
-              rows={4}
-              value={summary}
-              onChange={(event) => setSummary(event.target.value)}
-            />
-          </label>
-
-          {error ? <div className="banner banner-error">{error}</div> : null}
-        </div>
-
-        <div className="modal-footer">
-          <button className="ghost-button" type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary-button" type="button" onClick={saveLoop} disabled={pending || !title.trim()}>
-            {pending ? (loop ? "Saving..." : "Opening...") : loop ? "Save Changes" : "Open Loop"}
-          </button>
-        </div>
+          <div className="modal-footer">
+            <button className="ghost-button" type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="primary-button" type="submit" disabled={pending || !title.trim()}>
+              {pending ? (loop ? "Saving..." : "Opening...") : loop ? "Save Changes" : "Open Loop"}
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   );

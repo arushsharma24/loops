@@ -3,12 +3,14 @@
 import {
   CalendarClock,
   CheckCircle2,
+  CircleOff,
   ChevronRight,
   Clock3,
   Flag,
   Infinity,
   Pencil,
   Plus,
+  RotateCcw,
   Save,
   Sparkles,
   Trash2,
@@ -59,6 +61,7 @@ export function DashboardView({
   const [draftStatus, setDraftStatus] = useState<LoopStatus>("ACTIVE");
   const [checklistInput, setChecklistInput] = useState("");
   const [subloopTitle, setSubloopTitle] = useState("");
+  const [closingLoop, setClosingLoop] = useState<LoopRecord | null>(null);
 
   useEffect(() => {
     setLoops(initialLoops);
@@ -294,6 +297,26 @@ export function DashboardView({
     setSubloopTitle("");
   }
 
+  async function closeLoop(loop: LoopRecord) {
+    const saved = await persistLoop(
+      loop,
+      { status: "CLOSED", isCurrent: false, laterUntil: null },
+      `"${loop.title}" moved to Closed.`
+    );
+
+    if (saved) {
+      setClosingLoop(null);
+    }
+  }
+
+  async function reopenLoop(loop: LoopRecord) {
+    await persistLoop(loop, { status: "ACTIVE", laterUntil: null }, `"${loop.title}" is active again.`);
+  }
+
+  function openClosePrompt(loop: LoopRecord) {
+    setClosingLoop(loop);
+  }
+
   return (
     <>
       <main className="dashboard">
@@ -401,7 +424,7 @@ export function DashboardView({
             <p>
               {initialSection === "later"
                 ? "Nothing is parked for resurfacing right now."
-                : "Press N or click New to open your first loop."}
+                : "Press Cmd/Ctrl+Shift+O or click New to open your first loop."}
             </p>
             <div className="empty-actions">
               <button className="primary-button" type="button" onClick={() => setModalOpen(true)}>
@@ -447,22 +470,45 @@ export function DashboardView({
                       >
                         <Pencil size={14} />
                       </button>
-                      <button
-                        className="icon-button small-icon-button"
-                        onClick={() => void makeCurrent(loop)}
-                        type="button"
-                        aria-label="Make current"
-                      >
-                        <CheckCircle2 size={14} />
-                      </button>
-                      <button
-                        className="icon-button small-icon-button"
-                        onClick={() => void deferLoop(loop)}
-                        type="button"
-                        aria-label="Save for later"
-                      >
-                        <Clock3 size={14} />
-                      </button>
+                      {loop.status !== "CLOSED" ? (
+                        <button
+                          className="icon-button small-icon-button"
+                          onClick={() => void makeCurrent(loop)}
+                          type="button"
+                          aria-label="Make current"
+                        >
+                          <CheckCircle2 size={14} />
+                        </button>
+                      ) : null}
+                      {loop.status === "CLOSED" ? (
+                        <button
+                          className="icon-button small-icon-button"
+                          onClick={() => void reopenLoop(loop)}
+                          type="button"
+                          aria-label="Reopen loop"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      ) : (
+                        <button
+                          className="icon-button small-icon-button"
+                          onClick={() => openClosePrompt(loop)}
+                          type="button"
+                          aria-label="Close loop"
+                        >
+                          <CircleOff size={14} />
+                        </button>
+                      )}
+                      {loop.status !== "CLOSED" ? (
+                        <button
+                          className="icon-button small-icon-button"
+                          onClick={() => void deferLoop(loop)}
+                          type="button"
+                          aria-label="Save for later"
+                        >
+                          <Clock3 size={14} />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -482,9 +528,15 @@ export function DashboardView({
                       <button className="secondary-button" type="button" onClick={() => setEditingLoop(selectedLoop)}>
                         Edit metadata
                       </button>
-                      <button className="secondary-button" type="button" onClick={() => void makeCurrent(selectedLoop)}>
-                        Make current
-                      </button>
+                      {selectedLoop.status === "CLOSED" ? (
+                        <button className="secondary-button" type="button" onClick={() => void reopenLoop(selectedLoop)}>
+                          Reopen loop
+                        </button>
+                      ) : (
+                        <button className="secondary-button" type="button" onClick={() => void makeCurrent(selectedLoop)}>
+                          Make current
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -542,9 +594,22 @@ export function DashboardView({
                           <Save size={16} />
                           Save changes
                         </button>
-                        <button className="secondary-button" type="button" onClick={() => void deferLoop(selectedLoop)}>
-                          Save for later
-                        </button>
+                        {selectedLoop.status === "CLOSED" ? (
+                          <button className="secondary-button" type="button" onClick={() => void reopenLoop(selectedLoop)}>
+                            <RotateCcw size={16} />
+                            Reopen loop
+                          </button>
+                        ) : (
+                          <>
+                            <button className="secondary-button" type="button" onClick={() => void deferLoop(selectedLoop)}>
+                              Save for later
+                            </button>
+                            <button className="secondary-button" type="button" onClick={() => openClosePrompt(selectedLoop)}>
+                              <CircleOff size={16} />
+                              Close loop
+                            </button>
+                          </>
+                        )}
                         <button className="ghost-button danger-button" type="button" onClick={() => void deleteLoop(selectedLoop)}>
                           <Trash2 size={16} />
                           Delete
@@ -572,17 +637,23 @@ export function DashboardView({
                         <p className="muted-copy">No checklist items yet.</p>
                       )}
 
-                      <div className="inline-editor">
+                      <form
+                        className="inline-editor"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void addChecklistItem();
+                        }}
+                      >
                         <input
                           placeholder="Add checklist item"
                           value={checklistInput}
                           onChange={(event) => setChecklistInput(event.target.value)}
                         />
-                        <button className="secondary-button" onClick={() => void addChecklistItem()} type="button">
+                        <button className="secondary-button" type="submit">
                           <Plus size={16} />
                           Add
                         </button>
-                      </div>
+                      </form>
                     </section>
 
                     <section className="detail-section-card">
@@ -602,17 +673,23 @@ export function DashboardView({
                         <p className="muted-copy">Top-level loop</p>
                       )}
 
-                      <div className="inline-editor">
+                      <form
+                        className="inline-editor"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void createSubloop();
+                        }}
+                      >
                         <input
                           placeholder="Create subloop"
                           value={subloopTitle}
                           onChange={(event) => setSubloopTitle(event.target.value)}
                         />
-                        <button className="secondary-button" onClick={() => void createSubloop()} type="button">
+                        <button className="secondary-button" type="submit">
                           <Plus size={16} />
                           Add subloop
                         </button>
-                      </div>
+                      </form>
 
                       {selectedLoop.children.length ? (
                         <div className="subloop-list">
@@ -657,6 +734,61 @@ export function DashboardView({
           setEditingLoop(null);
         }}
       />
+
+      {closingLoop ? (
+        <div className="modal-overlay" role="presentation">
+          <div className="modal-backdrop" onClick={() => setClosingLoop(null)} />
+          <section className="modal-card completion-modal" role="dialog" aria-modal="true" aria-labelledby="close-loop-title">
+            <div className="modal-header">
+              <div className="modal-header-title">
+                <div className="brand-mark modal-mark">✓</div>
+                <h3 id="close-loop-title">Close loop</h3>
+              </div>
+            </div>
+
+            <div className="modal-body completion-body">
+              <div>
+                <p className="eyebrow">Ready to wrap this thread?</p>
+                <h4>{closingLoop.title}</h4>
+                <p className="muted-copy">
+                  {closingLoop.summary || "Mark this loop complete and keep the thread traceable in Closed."}
+                </p>
+              </div>
+
+              <div className="completion-summary-grid">
+                <div className="signal-card">
+                  <div>
+                    <span>Checklist</span>
+                    <strong>{formatChecklistSummary(closingLoop)}</strong>
+                  </div>
+                </div>
+                <div className="signal-card">
+                  <div>
+                    <span>Subloops</span>
+                    <strong>{formatSubloopSummary(closingLoop)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="completion-note">
+                <p className="eyebrow">Closing summary</p>
+                <p>
+                  {buildCloseSummary(closingLoop)}
+                </p>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="ghost-button" type="button" onClick={() => setClosingLoop(null)}>
+                Keep open
+              </button>
+              <button className="primary-button" type="button" onClick={() => void closeLoop(closingLoop)} disabled={pending}>
+                {pending ? "Closing..." : "Close loop"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -697,4 +829,41 @@ function formatTimingLabel(loop: LoopRecord) {
   }
 
   return "No timing set";
+}
+
+function formatChecklistSummary(loop: LoopRecord) {
+  if (loop.checklistItems.length === 0) {
+    return "No checklist items";
+  }
+
+  const completed = loop.checklistItems.filter((item) => item.completed).length;
+  return `${completed}/${loop.checklistItems.length} complete`;
+}
+
+function formatSubloopSummary(loop: LoopRecord) {
+  if (loop.children.length === 0) {
+    return "No subloops";
+  }
+
+  const openChildren = loop.children.filter((child) => child.status !== "CLOSED").length;
+  return openChildren === 0 ? "All subloops closed" : `${openChildren} still open`;
+}
+
+function buildCloseSummary(loop: LoopRecord) {
+  const incompleteItems = loop.checklistItems.filter((item) => !item.completed).length;
+  const openChildren = loop.children.filter((child) => child.status !== "CLOSED").length;
+
+  if (incompleteItems === 0 && openChildren === 0) {
+    return "Everything inside this loop is wrapped up. Closing it will preserve the record and clear it from your active surface.";
+  }
+
+  const parts = [];
+  if (incompleteItems > 0) {
+    parts.push(`${incompleteItems} checklist ${incompleteItems === 1 ? "item is" : "items are"} still open`);
+  }
+  if (openChildren > 0) {
+    parts.push(`${openChildren} ${openChildren === 1 ? "subloop is" : "subloops are"} still active`);
+  }
+
+  return `${parts.join(" and ")}, but you can still close this thread now and revisit the remaining pieces later from Closed.`;
 }

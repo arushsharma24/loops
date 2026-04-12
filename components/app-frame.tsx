@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bookmark, CircleCheck, Globe, Home, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Bookmark, CircleCheck, Globe, Home, Moon, Plus, Search, Sun } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { LoopModal } from "@/components/loop-modal";
 import type { LoopDomain, LoopRecord } from "@/lib/loop-record";
@@ -34,9 +34,45 @@ export function AppFrame({
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editLoop, setEditLoop] = useState<LoopRecord | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   const initials = useMemo(() => (user.name || user.email).slice(0, 1).toUpperCase(), [user.email, user.name]);
   const domain = (searchParams.get("domain")?.toUpperCase() as LoopDomain | null) || "ALL";
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const stored = window.localStorage.getItem("loops-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const nextTheme = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
+
+    root.dataset.theme = nextTheme;
+    setTheme(nextTheme);
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.key.toLowerCase() !== "o") {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setEditLoop(null);
+      setOpen(true);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   function hrefWithDomain(path: string, value: LoopDomain) {
     const params = new URLSearchParams(searchParams.toString());
@@ -53,6 +89,13 @@ export function AppFrame({
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
+  }
+
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = nextTheme;
+    window.localStorage.setItem("loops-theme", nextTheme);
+    setTheme(nextTheme);
   }
 
   return (
@@ -121,6 +164,14 @@ export function AppFrame({
             </div>
 
             <div className="topbar-actions">
+              <button
+                className="icon-button"
+                type="button"
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                onClick={toggleTheme}
+              >
+                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
               <button className="icon-button" type="button" aria-label="Search">
                 <Search size={18} />
               </button>
