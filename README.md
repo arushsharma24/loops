@@ -41,29 +41,22 @@ If you later deploy on your own server, keep the app and database on that machin
 This repo now includes a simple production stack for a single server:
 
 - `Dockerfile` for the Next.js app
-- `docker-compose.prod.yml` for the app, Postgres, and Caddy
-- `Caddyfile` for HTTPS and reverse proxy
+- `docker-compose.prod.yml` for the app and Postgres
 - `deploy.env.example` for the server-side environment variables
 
-### 1. Point DuckDNS at your server
-
-Create a DuckDNS subdomain and point it to your server's public IPv4 address. Make sure ports `80` and `443` are open in your cloud firewall.
-
-### 2. Install Docker on the server
+### 1. Install Docker on the server
 
 You need Docker Engine and the Docker Compose plugin available over SSH.
 
-### 3. Copy the project and configure env
+### 2. Copy the project and configure env
 
 On the server:
 
 1. Clone or copy this repo
 2. Copy `deploy.env.example` to `deploy.env`
-3. Set:
-   - `DOMAIN` to your DuckDNS hostname
-   - `POSTGRES_PASSWORD` to a strong random password
+3. Set `POSTGRES_PASSWORD` to a strong random password
 
-### 4. Start the stack
+### 3. Start the stack
 
 Run:
 
@@ -71,9 +64,9 @@ Run:
 docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --build
 ```
 
-The app container runs `prisma db push` before startup so the schema is created automatically.
+This starts PostgreSQL first, waits for it to become healthy, then starts the app. The app container runs `prisma db push` before startup so the schema is created automatically.
 
-### 5. Optional demo data
+### 4. Optional demo data
 
 If you want the seeded demo account in production:
 
@@ -81,7 +74,7 @@ If you want the seeded demo account in production:
 docker compose --env-file deploy.env -f docker-compose.prod.yml exec app npm run db:seed
 ```
 
-### 6. Updates
+### 5. Updates
 
 When you pull new code on the server, redeploy with:
 
@@ -91,7 +84,8 @@ docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --build
 
 ### Notes
 
-- Caddy will request and renew HTTPS certificates automatically once your DuckDNS hostname resolves to the server.
+- The app is published directly on port `3000`.
+- If you want to put DuckDNS, Caddy, Nginx, or another proxy in front later, you can do that outside this compose file.
 - If you want to use an external Postgres server later, replace the `DATABASE_URL` logic in `docker-compose.prod.yml` and remove the bundled `db` service.
 
 ## Deploy on Render
