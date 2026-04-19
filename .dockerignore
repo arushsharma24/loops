@@ -1,0 +1,14 @@
+.git
+.gitignore
+.next
+node_modules
+npm-debug.log
+Dockerfile*
+docker-compose*.yml
+.env
+.env.*
+deploy.env
+README.md
+spec.md
+assets
+tsconfig.tsbuildinfo
