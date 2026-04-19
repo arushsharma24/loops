@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { deriveNextStep, normalizeChecklistItems } from "@/lib/loop-record";
 import { loopInclude, serializeLoop } from "@/lib/loops";
 import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/server-log";
 import { loopSchema } from "@/lib/validation";
 
 type Context = {
@@ -90,7 +91,8 @@ export async function PATCH(request: Request, context: Context) {
     });
 
     return NextResponse.json({ loop: serializeLoop(loop) });
-  } catch {
+  } catch (error) {
+    logServerError("api.loops.update", error);
     return NextResponse.json({ error: "Database unavailable. Check DATABASE_URL and Prisma setup." }, { status: 503 });
   }
 }
@@ -117,7 +119,8 @@ export async function DELETE(_request: Request, context: Context) {
     });
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    logServerError("api.loops.delete", error);
     return NextResponse.json({ error: "Database unavailable. Check DATABASE_URL and Prisma setup." }, { status: 503 });
   }
 }

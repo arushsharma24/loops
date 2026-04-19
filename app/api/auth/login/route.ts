@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSession, setSessionCookie, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/server-log";
 import { authSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -36,7 +37,8 @@ export async function POST(request: Request) {
         name: user.name,
       },
     });
-  } catch {
+  } catch (error) {
+    logServerError("api.auth.login", error);
     return NextResponse.json({ error: "Database unavailable. Check DATABASE_URL and Prisma setup." }, { status: 503 });
   }
 }

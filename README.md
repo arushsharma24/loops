@@ -94,6 +94,36 @@ docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --build
 - Caddy will request and renew HTTPS certificates automatically once your DuckDNS hostname resolves to the server.
 - If you want to use an external Postgres server later, replace the `DATABASE_URL` logic in `docker-compose.prod.yml` and remove the bundled `db` service.
 
+## Deploy on Render
+
+If you deploy this repo to Render using the Docker runtime:
+
+1. Set `DATABASE_URL` to your Render Postgres internal URL
+2. Make sure the database schema is created before sign-in traffic hits the app
+
+For this project, the simplest schema step is:
+
+```bash
+npx prisma db push
+```
+
+You can run that either:
+
+- as a pre-deploy command in Render
+- or in the service's Docker command before startup
+
+Example Docker command in Render:
+
+```bash
+sh -c "npx prisma db push && npm run start"
+```
+
+### Notes
+
+- Render can detect port `3000` automatically for this Docker service, so no custom `PORT` handling is required here.
+- The Dockerfile installs `openssl`, which Prisma may require on slim Debian-based images.
+- This project currently uses Prisma `db push` for production schema setup, not versioned Prisma migrations. If you want safer deploy history later, switch to Prisma migrations and use `npx prisma migrate deploy` instead.
+
 ## Screenshots
 
 ![screenshot](assets/image2.png)

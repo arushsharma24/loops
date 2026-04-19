@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { deriveNextStep, normalizeChecklistItems } from "@/lib/loop-record";
 import { loopInclude, scoreLoop, serializeLoop } from "@/lib/loops";
 import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/server-log";
 import { loopSchema } from "@/lib/validation";
 
 export async function GET(request: Request) {
@@ -25,7 +26,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       loops: loops.sort((a, b) => scoreLoop(b) - scoreLoop(a)).map(serializeLoop),
     });
-  } catch {
+  } catch (error) {
+    logServerError("api.loops.list", error);
     return NextResponse.json({ error: "Database unavailable. Check DATABASE_URL and Prisma setup." }, { status: 503 });
   }
 }
@@ -97,7 +99,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ loop: serializeLoop(loop) }, { status: 201 });
-  } catch {
+  } catch (error) {
+    logServerError("api.loops.create", error);
     return NextResponse.json({ error: "Database unavailable. Check DATABASE_URL and Prisma setup." }, { status: 503 });
   }
 }

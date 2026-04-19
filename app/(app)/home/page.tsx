@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { loopInclude, scoreLoop, serializeLoop } from "@/lib/loops";
 import { isLoopDomain, type LoopDomain } from "@/lib/loop-record";
 import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/server-log";
 
 export default async function HomePage({
   searchParams,
@@ -30,7 +31,8 @@ export default async function HomePage({
       .map(serializeLoop);
 
     return <DashboardView initialDomainFilter={domainFilter} initialLoops={initialLoops} initialSection="home" />;
-  } catch {
+  } catch (error) {
+    logServerError("page.home", error);
     return (
       <DashboardView
         initialDomainFilter={domainFilter}

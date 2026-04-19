@@ -4,6 +4,7 @@ import { LoopPageView } from "@/components/loop-page-view";
 import { getCurrentUser } from "@/lib/auth";
 import { loopInclude, serializeLoop } from "@/lib/loops";
 import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/server-log";
 
 export default async function LoopPage({
   params,
@@ -35,7 +36,8 @@ export default async function LoopPage({
     }
 
     return <LoopPageView initialLoop={serializeLoop(loop)} loops={loops.map(serializeLoop)} />;
-  } catch {
+  } catch (error) {
+    logServerError("page.loop", error);
     notFound();
   }
 }

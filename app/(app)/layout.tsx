@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { loopInclude, serializeLoop } from "@/lib/loops";
 import type { LoopRecord } from "@/lib/loop-record";
 import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/server-log";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -21,7 +22,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       orderBy: { updatedAt: "desc" },
     });
     initialLoops = loops.map(serializeLoop);
-  } catch {
+  } catch (error) {
+    logServerError("layout.app", error);
     initialLoops = [];
   }
 

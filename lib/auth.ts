@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 
 import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/server-log";
 
 const SESSION_COOKIE = process.env.LOOPS_SESSION_COOKIE || "loops_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
@@ -75,7 +76,8 @@ export async function getCurrentUser() {
     }
 
     return session.user;
-  } catch {
+  } catch (error) {
+    logServerError("auth.getCurrentUser", error);
     return null;
   }
 }
