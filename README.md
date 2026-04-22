@@ -56,6 +56,12 @@ On the server:
 2. Copy `deploy.env.example` to `deploy.env`
 3. Set `POSTGRES_PASSWORD` to a strong random password
 
+The bundled Postgres container uses the values from `deploy.env`:
+
+- Username: `POSTGRES_USER` (defaults to `postgres`)
+- Database: `POSTGRES_DB` (defaults to `loops`)
+- Password: `POSTGRES_PASSWORD`
+
 ### 3. Start the stack
 
 Run:
@@ -66,15 +72,23 @@ docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --build
 
 This starts PostgreSQL first, waits for it to become healthy, then starts the app. The app container runs `prisma db push` before startup so the schema is created automatically.
 
-### 4. Optional demo data
+This step creates the database schema, but it does not create an application login. For a fresh production database, register your first account through the app UI.
 
-If you want the seeded demo account in production:
+Production now uses its own Docker volume, `loops-prod-postgres`, so it does not share database state with the local dev stack on the same machine.
+
+If you ever change `POSTGRES_PASSWORD` after Postgres has already initialized its data directory, the old database volume keeps the original password. Update the password only before first boot, or reset the volume.
+
+If your current `loops-app` container is crash-looping with a Prisma `P1000` authentication error, reset the old shared volume once:
 
 ```bash
-docker compose --env-file deploy.env -f docker-compose.prod.yml exec app npm run db:seed
+docker compose --env-file deploy.env -f docker-compose.prod.yml down
+docker volume rm loops_loops-postgres
+docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --build
 ```
 
-### 5. Updates
+The removed volume name above is the old shared default created before dev and prod volumes were separated.
+
+### 4. Updates
 
 When you pull new code on the server, redeploy with:
 
@@ -85,6 +99,7 @@ docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --build
 ### Notes
 
 - The app is published directly on port `3000`.
+- Local dev now uses `loops-dev-postgres` and production uses `loops-prod-postgres`, so they can safely coexist on the same machine.
 - If you want to put DuckDNS, Caddy, Nginx, or another proxy in front later, you can do that outside this compose file.
 - If you want to use an external Postgres server later, replace the `DATABASE_URL` logic in `docker-compose.prod.yml` and remove the bundled `db` service.
 

@@ -9,7 +9,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - loops-postgres:/var/lib/postgresql/data
+      - loops-dev-postgres:/var/lib/postgresql/data
 
 volumes:
-  loops-postgres:
+  loops-dev-postgres:
+    name: loops-dev-postgres
